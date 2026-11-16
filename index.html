@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>런메이트</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: 앱처럼 쓰는 매칭 화면. 왼쪽 조건 설문(1~4단계), 오른쪽 날짜 스트립과 추천 모임 목록. 모바일에서는 위아래로 쌓임 */
+:root{
+  --bg:#F2F6F7;
+  --surface:#FFFFFF;
+  --ink:#0F1E26;
+  --muted:#5A6B74;
+  --line:#D9E3E6;
+  --river:#0A7385;
+  --river-soft:#E1F1F3;
+  --flare:#F2542D;
+  --flare-soft:#FFE9E3;
+  --ok:#1F8A4C;
+  --font-display:"Black Han Sans","IBM Plex Sans KR",system-ui,sans-serif;
+  --font-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --radius:14px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B1418;--surface:#132128;--ink:#E7EFF1;--muted:#94A7AF;--line:#24363E;
+    --river:#43BFCD;--river-soft:#14323A;--flare:#FF7652;--flare-soft:#3A2019;--ok:#4CC27F;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B1418;--surface:#132128;--ink:#E7EFF1;--muted:#94A7AF;--line:#24363E;
+  --river:#43BFCD;--river-soft:#14323A;--flare:#FF7652;--flare-soft:#3A2019;--ok:#4CC27F;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--river);outline-offset:2px}
+h1,h2,h3{text-wrap:balance;margin:0}
+.num{font-variant-numeric:tabular-nums}
+
+/* header */
+.top{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+.top-in{max-width:1120px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.logo{display:flex;align-items:baseline;gap:10px}
+.logo b{font-family:var(--font-display);font-weight:400;font-size:26px;color:var(--river);letter-spacing:-.5px}
+.logo span{font-size:13px;color:var(--muted)}
+.tabs{display:flex;gap:4px;margin-left:auto}
+.tab{border:0;background:transparent;padding:8px 14px;border-radius:999px;cursor:pointer;color:var(--muted);font-weight:600}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--surface)}
+.tab .cnt{display:inline-block;min-width:18px;margin-left:4px;padding:0 5px;border-radius:9px;background:var(--flare);color:#fff;font-size:11px;line-height:18px}
+
+main{max-width:1120px;margin:0 auto;padding:20px 16px 64px}
+.view[hidden]{display:none}
+
+/* find layout */
+.find{display:grid;grid-template-columns:380px 1fr;gap:20px;align-items:start}
+@media (max-width:900px){.find{grid-template-columns:1fr}}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius)}
+.survey{padding:18px;position:sticky;top:76px;max-height:calc(100vh - 92px);overflow:auto}
+@media (max-width:900px){.survey{position:static;max-height:none}}
+.survey h2{font-size:18px}
+.survey .lead{color:var(--muted);font-size:13px;margin:4px 0 14px}
+.step{border-top:1px solid var(--line);padding:14px 0 6px}
+.step-h{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;margin-bottom:10px}
+.step-n{width:22px;height:22px;border-radius:50%;background:var(--river);color:#fff;font-size:12px;display:grid;place-items:center;font-variant-numeric:tabular-nums}
+.q{margin-bottom:12px}
+.q-l{font-size:12.5px;color:var(--muted);margin-bottom:6px;font-weight:500}
+.opts{display:flex;flex-wrap:wrap;gap:6px}
+.opt{border:1px solid var(--line);background:var(--surface);padding:6px 11px;border-radius:999px;font-size:13px;cursor:pointer;transition:background .12s,border-color .12s}
+.opt:hover{border-color:var(--river)}
+.opt[aria-pressed="true"]{background:var(--river);border-color:var(--river);color:#fff;font-weight:600}
+.opt.big{padding:9px 14px;border-radius:10px;flex:1;text-align:center}
+.rental-box[hidden]{display:none}
+.see-btn{display:none;width:100%;margin-top:8px}
+@media (max-width:900px){.see-btn{display:block}}
+
+.btn{border:0;border-radius:10px;padding:11px 16px;font-weight:700;cursor:pointer;background:var(--river);color:#fff}
+.btn.flare{background:var(--flare)}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* results */
+.days{display:flex;gap:6px;overflow-x:auto;padding:2px 2px 10px;scrollbar-width:thin}
+.day{flex:0 0 auto;min-width:58px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:6px 8px;text-align:center;cursor:pointer;line-height:1.25}
+.day small{display:block;font-size:11px;color:var(--muted)}
+.day b{font-size:17px;font-variant-numeric:tabular-nums}
+.day.sat small{color:#2F6FD6}.day.sun small{color:var(--flare)}
+.day[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.day[aria-pressed="true"] small{color:inherit;opacity:.8}
+
+.res-h{display:flex;align-items:end;justify-content:space-between;gap:12px;margin:8px 0 12px;flex-wrap:wrap}
+.res-h h2{font-size:20px}
+.res-h p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.sumchips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.sumchip{font-size:12px;background:var(--river-soft);color:var(--river);padding:3px 9px;border-radius:999px;font-weight:600}
+
+.list{display:grid;gap:10px}
+.run{display:grid;grid-template-columns:74px 1fr auto;gap:14px;align-items:center;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;cursor:pointer;position:relative}
+.run:hover{border-color:var(--river)}
+.run.full{opacity:.6}
+.run.mine{border-color:var(--river);box-shadow:inset 4px 0 0 var(--river)}
+.r-time b{display:block;font-size:20px;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+.r-time span{font-size:12px;color:var(--muted)}
+.r-title{font-weight:700;font-size:15.5px}
+.r-meta{font-size:13px;color:var(--muted);margin-top:2px}
+.r-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px}
+.chip{font-size:11.5px;padding:2px 8px;border-radius:6px;background:var(--bg);color:var(--muted);font-weight:500}
+.chip.hit{background:var(--river-soft);color:var(--river);font-weight:600}
+.chip.rent{background:var(--flare-soft);color:var(--flare);font-weight:600}
+.r-side{display:flex;flex-direction:column;align-items:flex-end;gap:5px;min-width:76px}
+.match{font-size:22px;font-weight:700;color:var(--river);font-variant-numeric:tabular-nums;line-height:1}
+.match small{font-size:11px;color:var(--muted);font-weight:500;display:block;text-align:right}
+.pill{font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--river-soft);color:var(--river);white-space:nowrap}
+.pill.hot{background:var(--flare);color:#fff}
+.pill.closed{background:var(--line);color:var(--muted)}
+.pill.joined{background:var(--ok);color:#fff}
+.spots{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+@media (max-width:520px){
+  .run{grid-template-columns:58px 1fr;gap:10px}
+  .r-side{grid-column:1 / -1;flex-direction:row;align-items:center;justify-content:flex-start;border-top:1px dashed var(--line);padding-top:8px}
+  .match small{display:inline;margin-left:4px}
+}
+.empty{padding:28px;text-align:center;color:var(--muted)}
+.create{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:16px;margin-top:14px;border:1.5px dashed var(--river);border-radius:var(--radius);background:var(--river-soft)}
+.create p{margin:0;font-size:13.5px}
+.create b{display:block;font-size:15px}
+
+/* modal */
+.overlay{position:fixed;inset:0;background:rgba(5,15,20,.55);display:flex;align-items:flex-end;justify-content:center;z-index:50;padding:0}
+.overlay[hidden]{display:none}
+.sheet{background:var(--surface);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:20px}
+@media (min-width:700px){.overlay{align-items:center;padding:24px}.sheet{border-radius:18px}}
+.sheet-h{display:flex;justify-content:space-between;align-items:start;gap:12px}
+.sheet h3{font-size:20px}
+.x{border:0;background:var(--bg);width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:18px;flex:0 0 auto}
+.facts{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:14px 0}
+.fact{background:var(--bg);border-radius:10px;padding:9px 11px}
+.fact small{display:block;font-size:11.5px;color:var(--muted)}
+.fact b{font-size:14px}
+.bar{height:8px;background:var(--bg);border-radius:4px;overflow:hidden;margin:6px 0 2px}
+.bar i{display:block;height:100%;background:var(--river)}
+.sec{border-top:1px solid var(--line);padding-top:14px;margin-top:14px}
+.sec h4{margin:0 0 8px;font-size:15px}
+.shop-card{border:1px solid var(--line);border-radius:12px;padding:12px}
+.shop-top{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.shop-top b{font-size:15px}
+.tag{font-size:11px;font-weight:600;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:1px 6px;margin-left:6px;vertical-align:2px}
+.shop-sub{font-size:12.5px;color:var(--muted);margin:2px 0 10px}
+.items{display:grid;gap:6px}
+.item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;background:var(--bg);font-size:13.5px}
+.item input{width:18px;height:18px;accent-color:var(--river)}
+.item .p{margin-left:auto;font-variant-numeric:tabular-nums;font-weight:600}
+.item.na{opacity:.5}
+.warn{background:var(--flare-soft);color:var(--flare);font-size:13px;font-weight:600;padding:9px 11px;border-radius:9px;margin-top:10px}
+.total{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:14px}
+.total b{font-size:18px;font-variant-numeric:tabular-nums}
+.actions{display:flex;gap:8px;margin-top:16px}
+.actions .btn{flex:1}
+
+/* shops & my */
+.page-h{margin-bottom:14px}
+.page-h h2{font-size:22px}
+.page-h p{color:var(--muted);margin:4px 0 0;font-size:14px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.shop-card.near{border-color:var(--river);box-shadow:inset 4px 0 0 var(--river)}
+.mini{display:flex;flex-wrap:wrap;gap:4px}
+.booking{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;display:grid;gap:8px}
+.booking-h{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:start}
+.code{font-family:ui-monospace,Menlo,monospace;font-weight:700;letter-spacing:1px;background:var(--river-soft);color:var(--river);padding:2px 8px;border-radius:6px}
+.note{font-size:12px;color:var(--muted);margin-top:18px}
+
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:11px 18px;border-radius:999px;font-size:14px;font-weight:600;z-index:60;box-shadow:0 6px 24px rgba(0,0,0,.2);max-width:calc(100% - 32px);text-align:center}
+.toast[hidden]{display:none}
+@media (prefers-reduced-motion:no-preference){.run,.opt,.day{transition:border-color .15s,background .15s}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <div class="logo"><b>런메이트</b><span>한강에서 나와 맞는 러닝 메이트 찾기</span></div>
+    <nav class="tabs" role="tablist">
+      <button class="tab" role="tab" id="tab-find" aria-selected="true" data-view="find">모임 찾기</button>
+      <button class="tab" role="tab" id="tab-shops" aria-selected="false" data-view="shops">대여점</button>
+      <button class="tab" role="tab" id="tab-my" aria-selected="false" data-view="my">내 신청<span class="cnt" id="myCnt" hidden>0</span></button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <!-- 모임 찾기 -->
+  <section class="view" id="view-find">
+    <div class="find">
+      <aside class="panel survey" aria-label="러닝 조건 설문">
+        <h2>나에게 맞는 러닝 조건</h2>
+        <p class="lead">고를 때마다 오른쪽 추천 모임이 바로 바뀌어요.</p>
+
+        <div class="step">
+          <div class="step-h"><span class="step-n">1</span>기본 정보</div>
+          <div class="q"><div class="q-l">나이대</div><div class="opts" data-key="age" data-mode="single"></div></div>
+          <div class="q"><div class="q-l">성별</div><div class="opts" data-key="gender" data-mode="single"></div></div>
+          <div class="q"><div class="q-l">모임 성별 구성</div><div class="opts" data-key="genderPref" data-mode="single"></div></div>
+        </div>
+
+        <div class="step">
+          <div class="step-h"><span class="step-n">2</span>러닝 스타일</div>
+          <div class="q"><div class="q-l">희망 거리</div><div class="opts" data-key="dist" data-mode="single"></div></div>
+          <div class="q"><div class="q-l">평소 페이스 (1km당)</div><div class="opts" data-key="pace" data-mode="single"></div></div>
+          <div class="q"><div class="q-l">선호하는 모임 분위기 (여러 개 가능)</div><div class="opts" data-key="moods" data-mode="multi"></div></div>
+          <div class="q"><div class="q-l">가능한 시간대 (여러 개 가능)</div><div class="opts" data-key="times" data-mode="multi"></div></div>
+        </div>
+
+        <div class="step">
+          <div class="step-h"><span class="step-n">3</span>장소와 러닝 후 모임</div>
+          <div class="q"><div class="q-l">한강 코스 (여러 개 가능, 안 고르면 전체)</div><div class="opts" data-key="courses" data-mode="multi"></div></div>
+          <div class="q"><div class="q-l">러닝 후 소모임</div><div class="opts" data-key="after" data-mode="single"></div></div>
+        </div>
+
+        <div class="step">
+          <div class="step-h"><span class="step-n">4</span>러닝 용품 대여</div>
+          <div class="q"><div class="q-l">모임 장소 근처에서 용품을 빌릴까요?</div><div class="opts" data-key="rental" data-mode="single" data-big="1"></div></div>
+          <div class="q rental-box" id="rentalBox"><div class="q-l">빌리고 싶은 용품 (여러 개 가능)</div><div class="opts" data-key="items" data-mode="multi"></div></div>
+        </div>
+        <button class="btn see-btn" id="seeBtn">추천 모임 보기</button>
+      </aside>
+
+      <section aria-label="추천 모임" id="results">
+        <div class="days" id="days"></div>
+        <div class="res-h">
+          <div><h2 id="resTitle">추천 모임</h2><p id="resSub"></p></div>
+          <div class="opts" id="sortOpts">
+            <button class="opt" aria-pressed="true" data-sort="match">매칭순</button>
+            <button class="opt" aria-pressed="false" data-sort="time">시간순</button>
+          </div>
+        </div>
+        <div class="sumchips" id="sumchips"></div>
+        <div class="list" id="list"></div>
+        <div class="create">
+          <div><b>딱 맞는 모임이 없나요?</b><p>지금 고른 조건 그대로 새 모임을 열고 메이트를 모집해요.</p></div>
+          <button class="btn flare" id="createBtn">내 조건으로 모임 만들기</button>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <!-- 대여점 -->
+  <section class="view" id="view-shops" hidden>
+    <div class="page-h">
+      <h2>한강 코스별 제휴 대여점</h2>
+      <p>모임 출발점 가까운 대여점에서 러닝 용품을 빌리고, 러닝 후 피크닉 용품까지 한 번에 챙길 수 있어요. 테두리가 강조된 곳은 내가 고른 코스의 대여점이에요.</p>
+    </div>
+    <div class="grid2" id="shopGrid"></div>
+    <p class="note">대여점 이름, 가격, 재고는 시연용 예시 데이터예요.</p>
+  </section>
+
+  <!-- 내 신청 -->
+  <section class="view" id="view-my" hidden>
+    <div class="page-h">
+      <h2>내 신청</h2>
+      <p>참여한 모임과 대여 예약이에요. 대여점에서 예약 코드를 보여주면 용품을 받을 수 있어요.</p>
+    </div>
+    <div class="list" id="myList"></div>
+  </section>
+</main>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" id="sheet"></div>
+</div>
+<div class="toast" id="toast" hidden role="status"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------- 기본 데이터 ---------- */
+const AGE = [
+  {id:"a1",label:"20대 초반"},{id:"a2",label:"20대 후반"},
+  {id:"a3",label:"30대 초반"},{id:"a4",label:"30대 후반"}
+];
+const GENDER = [{id:"female",label:"여성"},{id:"male",label:"남성"},{id:"none",label:"선택 안 함"}];
+const GENDER_PREF = [{id:"mixed",label:"남녀 모두 좋아요"},{id:"same",label:"같은 성별만"}];
+const DIST = [{id:3,label:"3km"},{id:5,label:"5km"},{id:7,label:"7km"},{id:10,label:"10km"},{id:21,label:"하프 21km"}];
+const PACE = [
+  {id:"p1",label:"7'00\" 이상 · 천천히", short:"7'00\"+"},
+  {id:"p2",label:"6'00\"–7'00\"", short:"6'00\"–7'00\""},
+  {id:"p3",label:"5'00\"–6'00\"", short:"5'00\"–6'00\""},
+  {id:"p4",label:"5'00\" 이내", short:"5'00\" 이내"}
+];
+const MOOD = [
+  {id:"social",label:"친목·대화"},{id:"beginner",label:"입문·처음"},
+  {id:"record",label:"기록·훈련"},{id:"photo",label:"노을·사진"}
+];
+const TIMES = [
+  {id:"wdAM",label:"평일 아침"},{id:"wdPM",label:"평일 저녁"},
+  {id:"weAM",label:"주말 아침"},{id:"wePM",label:"주말 저녁"}
+];
+const AFTER = [
+  {id:"chimaek",label:"치맥"},{id:"cafe",label:"카페"},{id:"picnic",label:"피크닉"},
+  {id:"none",label:"바로 해산"},{id:"any",label:"상관없어요"}
+];
+const RENTAL = [{id:"yes",label:"네, 빌릴래요"},{id:"no",label:"괜찮아요"}];
+const ITEMS = {
+  shoes:{label:"러닝화",price:5000},
+  belt:{label:"러닝벨트·암밴드",price:2000},
+  jacket:{label:"바람막이",price:3000},
+  light:{label:"LED 안전 암밴드",price:1500},
+  locker:{label:"짐 보관함",price:2000},
+  drink:{label:"생수·이온음료",price:1500},
+  mat:{label:"돗자리 (러닝 후 피크닉)",price:4000}
+};
+const COURSES = [
+  {id:"yeouido",name:"여의도",full:"여의도한강공원",start:"여의나루역 인근 물빛광장",feel:"평지 위주, 야경이 좋은 코스"},
+  {id:"banpo",name:"반포",full:"반포한강공원",start:"달빛무지개분수 앞",feel:"분수와 다리 야경, 초보에게 인기"},
+  {id:"ttukseom",name:"뚝섬",full:"뚝섬한강공원",start:"자양역 인근 공원 입구",feel:"넓은 잔디밭, 이른 아침 러닝에 좋아요"},
+  {id:"mangwon",name:"망원",full:"망원한강공원",start:"망원나들목 앞",feel:"한적한 강변길, 노을 명소"},
+  {id:"jamsil",name:"잠실",full:"잠실한강공원",start:"잠실한강공원 입구 광장",feel:"긴 직선 구간, 장거리 훈련용"},
+  {id:"ichon",name:"이촌",full:"이촌한강공원",start:"이촌한강공원 입구",feel:"잔디와 강변이 가까운 여유로운 코스"}
+];
+const SHOPS = [
+  {id:"s1",course:"yeouido",name:"여의 피크닉&런",walk:3,open:"10:00",close:"23:00",items:{shoes:6,belt:12,jacket:8,light:15,locker:20,drink:40,mat:18}},
+  {id:"s2",course:"banpo",name:"반포 달빛 대여소",walk:2,open:"11:00",close:"23:00",items:{belt:10,jacket:6,light:12,locker:16,drink:30,mat:22}},
+  {id:"s3",course:"ttukseom",name:"리버스테이션 뚝섬",walk:4,open:"06:00",close:"22:00",items:{shoes:8,belt:10,locker:24,drink:36,mat:15}},
+  {id:"s4",course:"mangwon",name:"망원 런앤쉼",walk:5,open:"09:00",close:"22:30",items:{belt:8,jacket:10,light:10,locker:12,drink:25,mat:14}},
+  {id:"s5",course:"jamsil",name:"잠실 강변 대여점",walk:6,open:"07:00",close:"22:00",items:{shoes:10,belt:14,light:12,locker:18,drink:30}},
+  {id:"s6",course:"ichon",name:"이촌 나들목 피크닉",walk:3,open:"10:00",close:"22:00",items:{belt:6,jacket:5,locker:10,drink:24,mat:20}}
+];
+// d: 오늘부터 며칠 뒤, ages: AGE 인덱스(빈 배열 = 나이 무관)
+const BASE_RUNS = [
+  {id:"r1",course:"yeouido",d:0,time:"19:30",dist:5,pace:"p2",ages:[1,2],gender:"mixed",mood:"social",after:"chimaek",cap:10,joined:7,leader:"한강달림이",title:"퇴근길 야경 5K"},
+  {id:"r2",course:"banpo",d:0,time:"20:00",dist:3,pace:"p1",ages:[0,1],gender:"mixed",mood:"beginner",after:"cafe",cap:8,joined:5,leader:"런린이탈출",title:"달빛분수 입문 3K"},
+  {id:"r3",course:"ttukseom",d:1,time:"06:40",dist:7,pace:"p3",ages:[2,3],gender:"mixed",mood:"record",after:"none",cap:8,joined:6,leader:"새벽페이서",title:"출근 전 템포런 7K"},
+  {id:"r4",course:"mangwon",d:1,time:"19:30",dist:5,pace:"p2",ages:[0,1],gender:"female",mood:"social",after:"cafe",cap:8,joined:6,leader:"망원러너스",title:"여성 러너 노을 5K"},
+  {id:"r5",course:"jamsil",d:1,time:"20:00",dist:10,pace:"p3",ages:[1,2,3],gender:"mixed",mood:"record",after:"none",cap:12,joined:9,leader:"빌드업장인",title:"잠실 10K 빌드업"},
+  {id:"r6",course:"ichon",d:2,time:"17:30",dist:5,pace:"p1",ages:[],gender:"mixed",mood:"photo",after:"picnic",cap:10,joined:4,leader:"노을수집가",title:"노을 사진 런 + 피크닉"},
+  {id:"r7",course:"yeouido",d:2,time:"20:30",dist:10,pace:"p4",ages:[1,2],gender:"male",mood:"record",after:"none",cap:8,joined:7,leader:"서브50",title:"10K 50분 페이스런"},
+  {id:"r8",course:"banpo",d:2,time:"06:30",dist:5,pace:"p3",ages:[2,3],gender:"male",mood:"record",after:"none",cap:8,joined:5,leader:"모닝마일",title:"반포 모닝 인터벌"},
+  {id:"r9",course:"banpo",d:3,time:"19:30",dist:5,pace:"p2",ages:[1,2],gender:"mixed",mood:"social",after:"chimaek",cap:10,joined:8,leader:"반포크루",title:"수요 치맥런 5K"},
+  {id:"r10",course:"ttukseom",d:3,time:"20:00",dist:3,pace:"p1",ages:[0],gender:"mixed",mood:"beginner",after:"cafe",cap:8,joined:3,leader:"새내기러너",title:"대학생 첫 러닝 3K"},
+  {id:"r11",course:"mangwon",d:4,time:"07:00",dist:7,pace:"p2",ages:[1,2],gender:"mixed",mood:"photo",after:"cafe",cap:8,joined:5,leader:"아침햇살",title:"망원 아침 강변 7K"},
+  {id:"r12",course:"yeouido",d:4,time:"19:30",dist:5,pace:"p3",ages:[0,1],gender:"mixed",mood:"record",after:"cafe",cap:10,joined:10,leader:"페이스메이커",title:"5K 기록 단축반"},
+  {id:"r13",course:"yeouido",d:5,time:"08:00",dist:21,pace:"p3",ages:[2,3],gender:"mixed",mood:"record",after:"none",cap:10,joined:6,leader:"하프도전",title:"주말 하프 LSD"},
+  {id:"r14",course:"banpo",d:5,time:"09:00",dist:5,pace:"p1",ages:[],gender:"mixed",mood:"beginner",after:"picnic",cap:12,joined:7,leader:"피크닉러버",title:"주말 피크닉 런"},
+  {id:"r15",course:"jamsil",d:5,time:"18:00",dist:5,pace:"p2",ages:[0,1],gender:"mixed",mood:"social",after:"chimaek",cap:10,joined:9,leader:"잠실메이트",title:"토요 선셋 치맥런"},
+  {id:"r16",course:"ttukseom",d:6,time:"08:30",dist:10,pace:"p2",ages:[1,2],gender:"female",mood:"social",after:"picnic",cap:8,joined:4,leader:"뚝섬언니들",title:"여성 10K 피크닉런"},
+  {id:"r17",course:"ichon",d:6,time:"17:30",dist:7,pace:"p2",ages:[2,3],gender:"mixed",mood:"social",after:"chimaek",cap:10,joined:5,leader:"이촌사람들",title:"일요 마무리 7K"},
+  {id:"r18",course:"mangwon",d:6,time:"18:30",dist:3,pace:"p1",ages:[0,1],gender:"mixed",mood:"beginner",after:"cafe",cap:8,joined:2,leader:"천천히가자",title:"걷뛰 가능 입문 3K"}
+];
+
+/* ---------- 저장 (이 브라우저에만) ---------- */
+const store = {
+  get(k,f){try{const v=localStorage.getItem("runmate:"+k);return v?JSON.parse(v):f}catch(e){return f}},
+  set(k,v){try{localStorage.setItem("runmate:"+k,JSON.stringify(v))}catch(e){}}
+};
+const DEFAULT_PREFS = {age:"a2",gender:"female",genderPref:"mixed",dist:5,pace:"p2",moods:["social"],times:["wdPM","weAM"],courses:[],after:"any",rental:"yes",items:["belt","locker"]};
+let prefs = Object.assign({}, DEFAULT_PREFS, store.get("prefs",{}));
+let myRuns = store.get("myRuns",[]);       // 내가 만든 모임
+let bookings = store.get("bookings",[]);   // {runId, shopId, items[], total, code}
+let dayFilter = "all";
+let sortBy = "match";
+
+/* ---------- 날짜 도우미 ---------- */
+const WD = "일월화수목금토";
+function dateOf(d){const t=new Date();t.setHours(0,0,0,0);t.setDate(t.getDate()+d);return t}
+function isWeekend(d){const w=dateOf(d).getDay();return w===0||w===6}
+function slotOf(run){const h=parseInt(run.time,10);return (isWeekend(run.d)?"we":"wd")+(h<12?"AM":"PM")}
+function dayLabel(d){const t=dateOf(d);if(d===0)return "오늘";if(d===1)return "내일";return (t.getMonth()+1)+"/"+t.getDate()+" ("+WD[t.getDay()]+")"}
+function toMin(s){const [h,m]=s.split(":").map(Number);return h*60+m}
+function fromMin(n){n=(n+1440)%1440;return String(Math.floor(n/60)).padStart(2,"0")+":"+String(n%60).padStart(2,"0")}
+
+/* ---------- 조회 도우미 ---------- */
+const byId=(arr,id)=>arr.find(x=>x.id===id);
+const course=id=>byId(COURSES,id);
+const shopFor=cid=>SHOPS.find(s=>s.course===cid);
+const allRuns=()=>myRuns.concat(BASE_RUNS);
+const won=n=>n.toLocaleString("ko-KR")+"원";
+function ageText(r){if(!r.ages.length)return "나이 무관";const a=r.ages.map(i=>AGE[i].label);if(a.length===1)return a[0];return a[0].replace(/ (초반|후반)/,m=>m)+"~"+a[a.length-1].replace("대","대")}
+function genderText(g){return g==="female"?"여성 전용":g==="male"?"남성 전용":"혼성"}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+
+/* ---------- 매칭 점수 ---------- */
+const MAX = 115;
+function score(r){
+  // 성별 전용 모임은 조건이 맞지 않으면 아예 제외
+  if(r.gender==="female" && prefs.gender!=="female") return null;
+  if(r.gender==="male" && prefs.gender!=="male") return null;
+  let s=0; const why=[];
+  if(prefs.genderPref==="same"){
+    if(r.gender!=="mixed"){s+=10;why.push(genderText(r.gender))}
+  } else { s+= r.gender==="mixed"?10:6 }
+  const di=DIST.findIndex(x=>x.id===r.dist), pi=DIST.findIndex(x=>x.id===prefs.dist);
+  if(di===pi){s+=25;why.push("거리 일치")} else if(Math.abs(di-pi)===1){s+=12}
+  const rp=+r.pace.slice(1), pp=+prefs.pace.slice(1);
+  if(rp===pp){s+=20;why.push("페이스 일치")} else if(Math.abs(rp-pp)===1){s+=8}
+  const myAge=AGE.findIndex(a=>a.id===prefs.age);
+  if(!r.ages.length){s+=8} else if(r.ages.includes(myAge)){s+=15;why.push("또래 모임")}
+  if(prefs.moods.includes(r.mood)){s+=15;why.push(byId(MOOD,r.mood).label)}
+  if(prefs.times.includes(slotOf(r))){s+=10;why.push(byId(TIMES,slotOf(r)).label)}
+  if(!prefs.courses.length || prefs.courses.includes(r.course)){s+=10; if(prefs.courses.length) why.push("선호 코스")}
+  if(prefs.after==="any"||prefs.after===r.after){s+=5; if(prefs.after!=="any") why.push("러닝 후 "+byId(AFTER,r.after).label)}
+  let rent=false;
+  if(prefs.rental==="yes"){const sh=shopFor(r.course); if(sh){const ok=prefs.items.filter(i=>sh.items[i]).length; if(ok){s+=5;rent=true}}}
+  return {pct:Math.min(100,Math.round(s/MAX*100)), why, rent};
+}
+
+/* ---------- 설문 렌더 ---------- */
+const OPTIONS = {age:AGE,gender:GENDER,genderPref:GENDER_PREF,dist:DIST,pace:PACE,moods:MOOD,times:TIMES,
+  courses:COURSES.map(c=>({id:c.id,label:c.name})),after:AFTER,rental:RENTAL,
+  items:Object.keys(ITEMS).map(k=>({id:k,label:ITEMS[k].label}))};
+
+function renderSurvey(){
+  document.querySelectorAll(".survey .opts").forEach(box=>{
+    const key=box.dataset.key, multi=box.dataset.mode==="multi";
+    box.innerHTML=OPTIONS[key].map(o=>{
+      const on = multi ? prefs[key].includes(o.id) : prefs[key]===o.id;
+      return '<button type="button" class="opt'+(box.dataset.big?" big":"")+'" id="opt-'+key+'-'+o.id+'" aria-pressed="'+on+'" data-v="'+o.id+'">'+esc(o.label)+'</button>';
+    }).join("");
+  });
+  document.getElementById("rentalBox").hidden = prefs.rental!=="yes";
+}
+document.querySelector(".survey").addEventListener("click",e=>{
+  const b=e.target.closest(".opt"); if(!b) return;
+  const box=b.parentElement, key=box.dataset.key, multi=box.dataset.mode==="multi";
+  let v=b.dataset.v; if(key==="dist") v=+v;
+  if(multi){
+    const arr=prefs[key], i=arr.indexOf(v);
+    if(i>-1){ if((key==="moods"||key==="times") && arr.length===1){toast("하나 이상은 골라 주세요");return} arr.splice(i,1)} else arr.push(v);
+  } else prefs[key]=v;
+  store.set("prefs",prefs);
+  renderSurvey(); renderResults(); renderShops();
+});
+document.getElementById("seeBtn").addEventListener("click",()=>document.getElementById("results").scrollIntoView({behavior:"smooth"}));
+
+/* ---------- 날짜 스트립 ---------- */
+function renderDays(){
+  let h='<button class="day" aria-pressed="'+(dayFilter==="all")+'" data-d="all"><small>7일</small><b>전체</b></button>';
+  for(let d=0; d<7; d++){
+    const t=dateOf(d), w=t.getDay();
+    h+='<button class="day'+(w===6?" sat":w===0?" sun":"")+'" aria-pressed="'+(dayFilter===d)+'" data-d="'+d+'"><small>'+(d===0?"오늘":WD[w])+'</small><b>'+t.getDate()+'</b></button>';
+  }
+  const el=document.getElementById("days"); el.innerHTML=h;
+}
+document.getElementById("days").addEventListener("click",e=>{
+  const b=e.target.closest(".day"); if(!b) return;
+  dayFilter = b.dataset.d==="all" ? "all" : +b.dataset.d;
+  renderDays(); renderResults();
+});
+document.getElementById("sortOpts").addEventListener("click",e=>{
+  const b=e.target.closest(".opt"); if(!b) return;
+  sortBy=b.dataset.sort;
+  document.querySelectorAll("#sortOpts .opt").forEach(x=>x.setAttribute("aria-pressed",x===b));
+  renderResults();
+});
+
+/* ---------- 추천 목록 ---------- */
+function statusOf(r){
+  const booked=bookings.some(b=>b.runId===r.id);
+  const left=r.cap-r.joined;
+  if(booked) return {cls:"joined",txt:"참여 확정"};
+  if(left<=0) return {cls:"closed",txt:"마감"};
+  if(left<=2) return {cls:"hot",txt:"마감 임박"};
+  return {cls:"",txt:"모집 중"};
+}
+function runCard(r,sc){
+  const c=course(r.course), st=statusOf(r);
+  const chips = sc.why.slice(0,4).map(w=>'<span class="chip hit">'+esc(w)+'</span>').join("")
+    + (sc.rent?'<span class="chip rent">대여점 연계</span>':"")
+    + (r.mine?'<span class="chip hit">내가 연 모임</span>':"");
+  return '<button class="run'+(st.cls==="closed"?" full":"")+(r.mine?" mine":"")+'" data-id="'+r.id+'">'
+    +'<div class="r-time"><b>'+r.time+'</b><span>'+dayLabel(r.d)+'</span></div>'
+    +'<div><div class="r-title">'+esc(c.name)+' · '+esc(r.title)+'</div>'
+    +'<div class="r-meta num">'+r.dist+'km · '+byId(PACE,r.pace).short+' · '+ageText(r)+' · '+genderText(r.gender)+'</div>'
+    +'<div class="r-chips">'+chips+'</div></div>'
+    +'<div class="r-side"><span class="match">'+sc.pct+'%<small>매칭</small></span><span class="pill '+st.cls+'">'+st.txt+'</span><span class="spots">'+r.joined+'/'+r.cap+'명</span></div>'
+    +'</button>';
+}
+function renderResults(){
+  let rows = allRuns().map(r=>({r,sc:score(r)})).filter(x=>x.sc && (x.sc.pct>=45 || x.r.mine));
+  if(dayFilter!=="all") rows=rows.filter(x=>x.r.d===dayFilter);
+  rows.sort(sortBy==="match"
+    ? (a,b)=>(b.r.mine?1:0)-(a.r.mine?1:0) || b.sc.pct-a.sc.pct || a.r.d-b.r.d
+    : (a,b)=>a.r.d-b.r.d || toMin(a.r.time)-toMin(b.r.time));
+  const list=document.getElementById("list");
+  list.innerHTML = rows.length ? rows.map(x=>runCard(x.r,x.sc)).join("")
+    : '<div class="panel empty">이 날짜에는 조건에 맞는 모임이 없어요. 다른 날짜를 보거나 아래에서 새 모임을 열어 보세요.</div>';
+  const strong=rows.filter(x=>x.sc.pct>=75).length;
+  document.getElementById("resTitle").textContent = "내 조건에 맞는 모임 "+rows.length+"개";
+  document.getElementById("resSub").textContent = strong ? "그중 매칭 75% 이상인 모임이 "+strong+"개예요." : "조건을 조금 넓히면 더 많은 모임이 보여요.";
+  const sum=[byId(AGE,prefs.age).label, prefs.dist+"km", byId(PACE,prefs.pace).short]
+    .concat(prefs.moods.map(m=>byId(MOOD,m).label))
+    .concat(prefs.courses.length?prefs.courses.map(c=>course(c).name):["한강 전체"])
+    .concat(prefs.rental==="yes"?["대여 "+prefs.items.length+"개"]:[]);
+  document.getElementById("sumchips").innerHTML=sum.map(s=>'<span class="sumchip">'+esc(s)+'</span>').join("");
+}
+document.getElementById("list").addEventListener("click",e=>{const b=e.target.closest(".run"); if(b) openRun(b.dataset.id)});
+
+/* ---------- 모임 상세 + 대여 연결 ---------- */
+const overlay=document.getElementById("overlay"), sheet=document.getElementById("sheet");
+let lastFocus=null;
+function openRun(id){
+  const r=byId(allRuns(),id), c=course(r.course), sh=shopFor(r.course), sc=score(r)||{pct:0,why:[]};
+  const st=statusOf(r), booked=bookings.find(b=>b.runId===id);
+  const pickup=fromMin(toMin(r.time)-20);
+  const openOk = sh && toMin(pickup)>=toMin(sh.open) && toMin(pickup)<=toMin(sh.close);
+  const wantRent = prefs.rental==="yes";
+  let rentHtml="";
+  if(sh){
+    const keys=Object.keys(ITEMS);
+    rentHtml='<div class="sec"><h4>근처 대여점에서 용품 빌리기</h4>'
+      +'<div class="shop-card"><div class="shop-top"><b>'+esc(sh.name)+'<span class="tag">제휴점</span></b><span class="spots">출발점에서 도보 '+sh.walk+'분</span></div>'
+      +'<div class="shop-sub num">영업 '+sh.open+'–'+sh.close+' · 픽업 권장 '+pickup+' (출발 20분 전)</div>'
+      +'<div class="items">'+keys.map(k=>{
+          const has=sh.items[k], chk = has && wantRent && prefs.items.includes(k) && !booked;
+          return '<label class="item'+(has?"":" na")+'"><input type="checkbox" id="it-'+k+'" data-k="'+k+'" '+(has?"":"disabled ")+(chk?"checked ":"")+(booked?"disabled ":"")+'>'
+            +'<span>'+esc(ITEMS[k].label)+(has?' <span class="spots">재고 '+has+'</span>':' <span class="spots">이 대여점에 없음</span>')+'</span>'
+            +'<span class="p">'+won(ITEMS[k].price)+'</span></label>';
+        }).join("")+'</div>'
+      +(openOk?"":'<div class="warn">픽업 시간('+pickup+')에 대여점이 영업 전이에요. 이 모임은 용품을 미리 챙겨 오세요.</div>')
+      +'<div class="total"><span>대여 합계</span><b id="rentTotal">0원</b></div></div></div>';
+  }
+  const fill=Math.round(r.joined/r.cap*100);
+  sheet.innerHTML =
+    '<div class="sheet-h"><div><div class="spots">'+dayLabel(r.d)+' '+r.time+' · '+esc(c.full)+'</div><h3 id="sheetTitle">'+esc(r.title)+'</h3></div><button class="x" id="closeSheet" aria-label="닫기">×</button></div>'
+    +'<div class="facts">'
+      +'<div class="fact"><small>거리 · 페이스</small><b class="num">'+r.dist+'km · '+byId(PACE,r.pace).short+'</b></div>'
+      +'<div class="fact"><small>나이 · 성별</small><b>'+ageText(r)+' · '+genderText(r.gender)+'</b></div>'
+      +'<div class="fact"><small>분위기</small><b>'+byId(MOOD,r.mood).label+'</b></div>'
+      +'<div class="fact"><small>러닝 후</small><b>'+byId(AFTER,r.after).label+'</b></div>'
+    +'</div>'
+    +'<div class="fact"><small>출발 지점</small><b>'+esc(c.start)+'</b><div class="spots">'+esc(c.feel)+'</div></div>'
+    +'<div style="margin-top:12px"><div style="display:flex;justify-content:space-between;font-size:13px"><span>모임장 <b>'+esc(r.leader)+'</b></span><span class="num">'+r.joined+'/'+r.cap+'명 · 매칭 '+sc.pct+'%</span></div><div class="bar"><i style="width:'+fill+'%"></i></div></div>'
+    + rentHtml
+    +'<div class="actions">'
+      +(booked
+        ? '<button class="btn ghost" id="cancelRun">참여 취소</button><button class="btn" id="goMy">내 신청 보기</button>'
+        : st.cls==="closed"
+          ? '<button class="btn" disabled>모집이 마감됐어요</button>'
+          : '<button class="btn" id="joinRun" data-ok="'+(openOk?1:0)+'">참여하기</button>')
+    +'</div>';
+  overlay.hidden=false; lastFocus=document.activeElement;
+  document.getElementById("closeSheet").focus();
+  const upd=()=>{
+    const ks=[...sheet.querySelectorAll(".items input:checked")].map(i=>i.dataset.k);
+    const tot=ks.reduce((a,k)=>a+ITEMS[k].price,0);
+    const t=document.getElementById("rentTotal"); if(t) t.textContent=won(tot);
+    const j=document.getElementById("joinRun");
+    if(j) j.textContent = ks.length && openOk ? "참여 + 용품 "+ks.length+"개 대여 예약 ("+won(tot)+")" : "참여하기";
+    return {ks,tot};
+  };
+  sheet.querySelectorAll(".items input").forEach(i=>i.addEventListener("change",upd));
+  upd();
+  document.getElementById("closeSheet").onclick=closeSheet;
+  const j=document.getElementById("joinRun");
+  if(j) j.onclick=()=>{
+    const {ks,tot}=upd(); const rent = ks.length && openOk;
+    const code="RM-"+Math.random().toString(36).slice(2,6).toUpperCase();
+    bookings.push({runId:id,shopId:rent?sh.id:null,items:rent?ks:[],total:rent?tot:0,code});
+    r.joined++; persist(); closeSheet(); refreshAll();
+    toast(rent ? "참여 완료! "+sh.name+"에 대여 예약도 넣었어요" : "참여 완료! 내 신청에서 확인할 수 있어요");
+  };
+  const cx=document.getElementById("cancelRun");
+  if(cx) cx.onclick=()=>{cancel(id); closeSheet()};
+  const gm=document.getElementById("goMy");
+  if(gm) gm.onclick=()=>{closeSheet(); show("my")};
+}
+function closeSheet(){overlay.hidden=true; if(lastFocus) lastFocus.focus()}
+overlay.addEventListener("click",e=>{if(e.target===overlay) closeSheet()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape" && !overlay.hidden) closeSheet()});
+
+function cancel(id){
+  bookings=bookings.filter(b=>b.runId!==id);
+  const r=byId(allRuns(),id); if(r) r.joined=Math.max(r.mine?1:0,r.joined-1);
+  persist(); refreshAll(); toast("참여를 취소했어요. 대여 예약도 함께 취소됐어요");
+}
+function persist(){
+  store.set("bookings",bookings); store.set("myRuns",myRuns);
+  store.set("joined",BASE_RUNS.map(r=>r.joined));
+}
+(function restoreJoined(){const j=store.get("joined",null); if(Array.isArray(j)&&j.length===BASE_RUNS.length) BASE_RUNS.forEach((r,i)=>r.joined=j[i])})();
+
+/* ---------- 내 조건으로 모임 만들기 ---------- */
+const SLOT_TIME={wdAM:"06:40",wdPM:"19:30",weAM:"08:30",wePM:"18:00"};
+document.getElementById("createBtn").addEventListener("click",()=>{
+  // 고른 시간대와 맞는 가장 가까운 날(내일부터)을 찾음
+  let d=1, slot=prefs.times[0];
+  for(let k=1;k<7;k++){
+    const we=isWeekend(k), hit=prefs.times.find(t=>t.startsWith(we?"we":"wd"));
+    if(hit){d=k;slot=hit;break}
+  }
+  const cid = prefs.courses[0] || "yeouido", ai=AGE.findIndex(a=>a.id===prefs.age);
+  const g = prefs.genderPref==="same" && prefs.gender!=="none" ? prefs.gender : "mixed";
+  const run={id:"m"+Date.now(),course:cid,d,time:SLOT_TIME[slot],dist:prefs.dist,pace:prefs.pace,
+    ages:[Math.max(0,ai-1),ai].filter((v,i,a)=>a.indexOf(v)===i),gender:g,mood:prefs.moods[0],
+    after:prefs.after==="any"?"cafe":prefs.after,cap:8,joined:1,leader:"나",mine:true,
+    title:byId(MOOD,prefs.moods[0]).label+" "+(prefs.dist===21?"하프":prefs.dist+"K")+" 메이트 모집"};
+  myRuns.unshift(run);
+  bookings.push({runId:run.id,shopId:null,items:[],total:0,code:"RM-HOST"});
+  persist(); dayFilter="all"; sortBy="match";
+  document.querySelectorAll("#sortOpts .opt").forEach(x=>x.setAttribute("aria-pressed",x.dataset.sort==="match"));
+  refreshAll();
+  document.getElementById("results").scrollIntoView({behavior:"smooth"});
+  toast(course(cid).name+" "+dayLabel(d)+" "+run.time+" 모임을 열었어요. 목록 맨 위에 있어요");
+});
+
+/* ---------- 대여점 탭 ---------- */
+function renderShops(){
+  document.getElementById("shopGrid").innerHTML=SHOPS.map(sh=>{
+    const c=course(sh.course), near=prefs.courses.includes(sh.course);
+    const cnt=allRuns().filter(r=>r.course===sh.course).length;
+    return '<div class="shop-card panel'+(near?" near":"")+'">'
+      +'<div class="shop-top"><b>'+esc(sh.name)+'</b><span class="pill">'+esc(c.name)+'</span></div>'
+      +'<div class="shop-sub num">'+esc(c.start)+'에서 도보 '+sh.walk+'분 · 영업 '+sh.open+'–'+sh.close+' · 이번 주 연계 모임 '+cnt+'개</div>'
+      +'<div class="items">'+Object.keys(sh.items).map(k=>{
+        const want=prefs.rental==="yes"&&prefs.items.includes(k);
+        return '<div class="item"><span>'+esc(ITEMS[k].label)+(want?' <span class="chip hit">내 선택</span>':'')+'</span><span class="spots" style="margin-left:auto">재고 '+sh.items[k]+'</span><span class="p">'+won(ITEMS[k].price)+'</span></div>';
+      }).join("")+'</div></div>';
+  }).join("");
+}
+
+/* ---------- 내 신청 탭 ---------- */
+function renderMy(){
+  const el=document.getElementById("myList"), cnt=document.getElementById("myCnt");
+  cnt.hidden=!bookings.length; cnt.textContent=bookings.length;
+  if(!bookings.length){el.innerHTML='<div class="panel empty">아직 참여한 모임이 없어요. 모임 찾기에서 마음에 드는 모임을 골라 보세요.</div>';return}
+  el.innerHTML=bookings.map(b=>{
+    const r=byId(allRuns(),b.runId); if(!r) return "";
+    const c=course(r.course), sh=b.shopId?byId(SHOPS,b.shopId):null;
+    return '<div class="booking"><div class="booking-h"><div><div class="spots">'+dayLabel(r.d)+' '+r.time+' · '+esc(c.full)+'</div><b style="font-size:16px">'+esc(r.title)+'</b></div>'
+      +'<span class="pill joined">'+(r.mine?"내가 연 모임":"참여 확정")+'</span></div>'
+      +'<div class="r-meta num">'+r.dist+'km · '+byId(PACE,r.pace).short+' · 출발 '+esc(c.start)+' · '+r.joined+'/'+r.cap+'명</div>'
+      +(sh?'<div class="item"><span><b>'+esc(sh.name)+'</b> 픽업 '+fromMin(toMin(r.time)-20)+'<br><span class="spots">'+b.items.map(k=>ITEMS[k].label).join(", ")+'</span></span><span class="p">'+won(b.total)+'</span></div>'
+          +'<div style="font-size:13px">예약 코드 <span class="code">'+b.code+'</span></div>':'<div class="spots">대여 예약 없음</div>')
+      +'<div><button class="btn ghost" data-cancel="'+r.id+'">'+(r.mine?"모임 닫기":"참여 취소")+'</button></div></div>';
+  }).join("");
+}
+document.getElementById("myList").addEventListener("click",e=>{
+  const b=e.target.closest("[data-cancel]"); if(!b) return;
+  const id=b.dataset.cancel;
+  if(id.startsWith("m")){myRuns=myRuns.filter(r=>r.id!==id); bookings=bookings.filter(x=>x.runId!==id); persist(); refreshAll(); toast("내가 연 모임을 닫았어요")}
+  else cancel(id);
+});
+
+/* ---------- 탭 ---------- */
+function show(v){
+  document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-selected",t.dataset.view===v));
+  ["find","shops","my"].forEach(x=>document.getElementById("view-"+x).hidden = x!==v);
+  window.scrollTo(0,0);
+}
+document.querySelector(".tabs").addEventListener("click",e=>{const t=e.target.closest(".tab"); if(t) show(t.dataset.view)});
+
+/* ---------- 토스트 ---------- */
+let tt; function toast(m){const t=document.getElementById("toast");t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,2600)}
+
+function refreshAll(){renderDays();renderResults();renderShops();renderMy()}
+renderSurvey(); refreshAll();
+})();
+</script>
+</body>
+</html>
